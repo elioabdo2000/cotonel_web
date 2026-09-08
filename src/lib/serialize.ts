@@ -12,7 +12,7 @@ export function serializeProduct(raw: Record<string, unknown>): ProductDoc {
     _id: String(raw._id),
     createdAt:
       raw.createdAt instanceof Date ? raw.createdAt.toISOString() : String(raw.createdAt ?? ""),
-  } as ProductDoc;
+  } as unknown as ProductDoc;
 }
 
 export function serializeProducts(raw: Record<string, unknown>[]): ProductDoc[] {
