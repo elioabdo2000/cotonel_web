@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Photo from "./Photo";
+import Image from "next/image";
 import { heroSlides } from "@/data/heroSlides";
 
 const AUTOPLAY_MS = 15000;
@@ -57,12 +57,14 @@ export default function Hero() {
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <Photo
+          <Image
             key={slide.src}
             src={slide.src}
             alt={slide.alt}
-            style={{ objectPosition: slide.focus ?? "center" }}
-            className="absolute inset-0 h-full w-full object-cover"
+            fill
+            sizes="(max-width: 640px) 100vw, 1152px"
+            priority={index === 0}
+            style={{ objectFit: "cover", objectPosition: slide.focus ?? "center" }}
           />
         )}
 

@@ -45,14 +45,16 @@ export default function CategoryCircles({
               href={`/${category.slug}`}
               className="group flex flex-shrink-0 snap-start flex-col items-center gap-2.5"
             >
-              <TiltCard intensity={14} className="rounded-full">
-                <Photo
-                  src={image}
-                  alt={category.label}
-                  accent={category.accent}
-                  className="h-20 w-20 rounded-full object-cover shadow-md ring-1 ring-line transition-shadow duration-300 group-hover:shadow-xl group-hover:ring-sage sm:h-28 sm:w-28"
-                />
-              </TiltCard>
+              <div className="h-20 w-20 overflow-hidden rounded-full shadow-md ring-1 ring-line transition-shadow duration-300 group-hover:shadow-xl group-hover:ring-sage sm:h-28 sm:w-28">
+                <TiltCard intensity={14} className="h-full w-full">
+                  <Photo
+                    src={image}
+                    alt={category.label}
+                    accent={category.accent}
+                    className="h-full w-full scale-110 object-cover"
+                  />
+                </TiltCard>
+              </div>
               <span className="max-w-[6.5rem] text-center text-xs font-medium leading-tight text-ink-soft transition group-hover:text-ink sm:max-w-[7.5rem] sm:text-sm">
                 {category.label}
               </span>
