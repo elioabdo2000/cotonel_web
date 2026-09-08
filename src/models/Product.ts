@@ -19,7 +19,7 @@ export interface ProductDoc {
   sizes?: string[]; // e.g. ["S", "M", "L"] — leave empty to hide the size picker
   colors?: string[]; // e.g. ["Black", "Ivory"] — leave empty to hide the color picker
   stock?: number; // units left. Leave unset to hide stock info entirely.
-  createdAt: string;
+  createdAt: Date;
 }
 
 const ProductSchema = new Schema<ProductDoc>({
