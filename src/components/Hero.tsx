@@ -42,7 +42,7 @@ export default function Hero() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink shadow-lg sm:aspect-[16/8] sm:rounded-3xl sm:shadow-xl">
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink shadow-lg sm:aspect-[16/8] sm:rounded-3xl sm:shadow-xl">
         {slide.type === "video" ? (
           <video
             ref={videoRef}
@@ -74,12 +74,12 @@ export default function Hero() {
             Cotonel
           </p>
           {slide.headline && (
-            <h1 className="font-display mt-2 max-w-lg text-3xl italic leading-tight text-cream-raised sm:text-5xl">
+            <h1 className="font-display mt-2 line-clamp-3 max-w-lg text-2xl italic leading-tight text-cream-raised sm:text-5xl">
               {slide.headline}
             </h1>
           )}
           {slide.subheading && (
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-cream-raised/85 sm:text-base">
+            <p className="mt-3 line-clamp-2 max-w-sm text-xs leading-relaxed text-cream-raised/85 sm:text-base">
               {slide.subheading}
             </p>
           )}
@@ -99,7 +99,7 @@ export default function Hero() {
               type="button"
               aria-label="Previous slide"
               onClick={() => goTo(index - 1)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/25 p-3 text-cream-raised transition hover:bg-black/40 sm:left-5"
+              className="absolute left-3 top-4 rounded-full bg-black/25 p-3 text-cream-raised transition hover:bg-black/40 sm:left-5 sm:top-6"
             >
               <ChevronIcon direction="left" />
             </button>
@@ -107,7 +107,7 @@ export default function Hero() {
               type="button"
               aria-label="Next slide"
               onClick={next}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/25 p-3 text-cream-raised transition hover:bg-black/40 sm:right-5"
+              className="absolute right-3 top-4 rounded-full bg-black/25 p-3 text-cream-raised transition hover:bg-black/40 sm:right-5 sm:top-6"
             >
               <ChevronIcon direction="right" />
             </button>
