@@ -4,6 +4,7 @@ import Photo from "./Photo";
 import OrderButton from "./OrderButton";
 import TiltCard from "./TiltCard";
 import { useProductModal } from "./ProductModalContext";
+import { stockState } from "@/lib/stock";
 import type { ProductDoc } from "@/models/Product";
 
 export default function ProductCard({
@@ -14,8 +15,7 @@ export default function ProductCard({
   accent: "sage" | "blue" | "blush";
 }) {
   const { open } = useProductModal();
-  const outOfStock = product.stock !== undefined && product.stock <= 0;
-  const lowStock = product.stock !== undefined && product.stock > 0 && product.stock <= 5;
+  const stock = stockState(product.stock);
   const isOnSale = Boolean(product.onSale && product.salePrice);
 
   return (
@@ -31,16 +31,18 @@ export default function ProductCard({
             src={product.image}
             alt={product.name}
             accent={accent}
-            className="aspect-[4/5] w-full scale-100 object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            className={`aspect-[4/5] w-full scale-100 object-cover transition-transform duration-500 group-hover:scale-[1.04] ${
+              stock.soldOut ? "opacity-60 saturate-50" : ""
+            }`}
           />
         </TiltCard>
-        {(lowStock || outOfStock) && (
+        {(stock.soldOut || stock.urgent || stock.low) && (
           <span
             className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[11px] font-medium text-cream-raised ${
-              outOfStock ? "bg-ink-soft" : "bg-blush-deep"
+              stock.soldOut ? "bg-ink-soft" : stock.urgent ? "bg-blush-deep" : "bg-blush-deep/80"
             }`}
           >
-            {outOfStock ? "Out of stock" : `Only ${product.stock} left`}
+            {stock.label}
           </span>
         )}
         {isOnSale && (
@@ -66,7 +68,7 @@ export default function ProductCard({
           )}
         </button>
         <div className="mt-auto">
-          <OrderButton productName={product.name} full />
+          <OrderButton productName={product.name} productImage={product.image} full />
         </div>
       </div>
     </div>

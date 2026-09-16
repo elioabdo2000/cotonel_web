@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Photo from "./Photo";
 import type { ProductDoc } from "@/models/Product";
+import { stockState } from "@/lib/stock";
 import { site } from "@/data/site";
 
 // Pops open with everything a shopper needs before ordering: price, sizes,
@@ -40,14 +41,14 @@ export default function ProductModal({
   if (!product) return null;
 
   const gallery = [product.image, ...(product.images ?? [])];
-  const outOfStock = product.stock !== undefined && product.stock <= 0;
-  const lowStock = product.stock !== undefined && product.stock > 0 && product.stock <= 5;
+  const stock = stockState(product.stock);
+  const outOfStock = stock.soldOut;
   const isOnSale = Boolean(product.onSale && product.salePrice);
 
   const parts = [`Hi! I'm interested in the ${product.name}`];
   if (size) parts.push(`size ${size}`);
   if (color) parts.push(`in ${color}`);
-  const message = `${parts.join(", ")} — is it available?`;
+  const message = `${parts.join(", ")} — is it available?\n\n${product.image}`;
   const whatsappHref = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
 
   return (
@@ -129,17 +130,13 @@ export default function ProductModal({
             <p className="mt-4 text-sm leading-relaxed text-ink-soft">{product.description}</p>
           )}
 
-          {product.stock !== undefined && (
+          {stock.label && (
             <p
               className={`mt-4 text-sm font-medium ${
-                outOfStock ? "text-blush-deep" : lowStock ? "text-blush-deep" : "text-sage-deep"
+                stock.soldOut || stock.urgent || stock.low ? "text-blush-deep" : "text-sage-deep"
               }`}
             >
-              {outOfStock
-                ? "Out of stock"
-                : lowStock
-                  ? `Only ${product.stock} left`
-                  : `${product.stock} in stock`}
+              {stock.label}
             </p>
           )}
 

@@ -18,7 +18,7 @@ export interface ProductDoc {
   salePrice?: string; // the discounted price — only shown/used while onSale is true
   sizes?: string[]; // e.g. ["S", "M", "L"] — leave empty to hide the size picker
   colors?: string[]; // e.g. ["Black", "Ivory"] — leave empty to hide the color picker
-  stock?: number; // units left. Leave unset to hide stock info entirely.
+  stock: number; // units left — required; 0 shows as Sold Out
   createdAt: Date;
 }
 
@@ -36,7 +36,7 @@ const ProductSchema = new Schema<ProductDoc>({
   salePrice: { type: String, trim: true },
   sizes: { type: [String], default: undefined },
   colors: { type: [String], default: undefined },
-  stock: { type: Number, min: 0 },
+  stock: { type: Number, min: 0, required: true, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 

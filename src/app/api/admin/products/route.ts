@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
   if (typeof image !== "string" || !image.trim()) {
     return NextResponse.json({ error: "Product photo is required" }, { status: 400 });
   }
+  if (typeof stock !== "number" || Number.isNaN(stock) || stock < 0) {
+    return NextResponse.json({ error: "Stock is required (use 0 for sold out)" }, { status: 400 });
+  }
 
   await connectDB();
   const product = await Product.create({
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
     salePrice: typeof salePrice === "string" ? salePrice.trim() : undefined,
     sizes: Array.isArray(sizes) && sizes.length ? sizes : undefined,
     colors: Array.isArray(colors) && colors.length ? colors : undefined,
-    stock: typeof stock === "number" && !Number.isNaN(stock) ? stock : undefined,
+    stock,
   });
 
   return NextResponse.json({ product }, { status: 201 });

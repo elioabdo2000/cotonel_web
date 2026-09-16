@@ -10,14 +10,16 @@ function WhatsAppGlyph() {
 
 export default function OrderButton({
   productName,
+  productImage,
   full = false,
 }: {
   productName: string;
+  productImage?: string;
   full?: boolean;
 }) {
   return (
     <a
-      href={whatsappLink(productName)}
+      href={whatsappLink(productName, productImage)}
       target="_blank"
       rel="noreferrer"
       className={`inline-flex items-center justify-center gap-1.5 rounded-full bg-[var(--color-whatsapp)] px-3.5 py-2 text-xs font-medium text-cream-raised transition hover:brightness-110 ${

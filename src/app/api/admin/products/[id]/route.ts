@@ -50,7 +50,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof salePrice === "string") updates.salePrice = salePrice.trim();
   if (Array.isArray(sizes)) updates.sizes = sizes.length ? sizes : undefined;
   if (Array.isArray(colors)) updates.colors = colors.length ? colors : undefined;
-  if (typeof stock === "number" && !Number.isNaN(stock)) updates.stock = stock;
+  if (stock !== undefined) {
+    if (typeof stock !== "number" || Number.isNaN(stock) || stock < 0) {
+      return NextResponse.json({ error: "Stock must be 0 or more" }, { status: 400 });
+    }
+    updates.stock = stock;
+  }
 
   await connectDB();
   const product = await Product.findByIdAndUpdate(id, updates, { new: true });

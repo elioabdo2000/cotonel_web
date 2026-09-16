@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { site, whatsappLink } from "@/data/site";
 import TrustBar from "./TrustBar";
+import Photo from "./Photo";
 
 export default function Footer() {
   return (
@@ -8,15 +10,22 @@ export default function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
-            {/* Simple monogram placeholder — swap this for your real logo
-                file whenever you have one; send it over and I'll wire it in. */}
-            <span className="font-display flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-[var(--color-gold)] text-lg italic text-[var(--color-gold)]">
-              C
-            </span>
+            {/* Put your logo file at /public/images/logo.png (create the
+                /images folder inside /public if it isn't there yet). Until
+                that file exists, this shows a soft placeholder instead of
+                a broken image. object-contain keeps the whole logo visible
+                without cropping it, whatever its shape. */}
+            <Photo
+              src="/images/logo.png"
+              alt={`${site.name} logo`}
+              accent="sage"
+              className="h-12 w-12 flex-shrink-0 object-contain"
+            />
             <div>
-              <p className="font-display text-xl italic text-ink">{site.name}</p>
-              <p className="mt-1 max-w-xs text-sm text-ink-soft">
-                {site.tagline}. Owned by {site.owner} — {site.city}.
+              <p className="font-display text-xl italic text-ink">Cotonel.lb</p>
+              <p className="text-sm text-ink-soft">by Samar</p>
+              <p className="mt-2 max-w-xs text-sm text-ink-soft">
+                {site.tagline} — {site.city}.
               </p>
             </div>
           </div>
@@ -40,6 +49,9 @@ export default function Footer() {
               <InstagramIcon />
               @cotonel.lb on Instagram
             </a>
+            <Link href="/faq" className="transition hover:text-ink">
+              Delivery, payment &amp; returns (FAQ)
+            </Link>
           </div>
         </div>
 

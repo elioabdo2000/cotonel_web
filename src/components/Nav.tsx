@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Photo from "./Photo";
 import { categories } from "@/data/categories";
 
 export default function Nav() {
@@ -10,8 +11,19 @@ export default function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-cream/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="font-display text-2xl italic text-ink" onClick={() => setOpen(false)}>
-          Cotonel
+        <Link href="/" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
+          {/* Logo file at /public/images/logo.png — a square icon mark, so
+              sized square here rather than the wide box used before. */}
+          <Photo
+            src="/images/logo.png"
+            alt="Cotonel"
+            accent="sage"
+            className="h-10 w-10 flex-shrink-0 object-contain sm:h-11 sm:w-11"
+          />
+          <span className="flex flex-col leading-tight">
+            <span className="font-display text-lg italic text-ink sm:text-xl">Cotonel.lb</span>
+            <span className="text-[11px] text-ink-soft">by Samar</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex">
@@ -22,6 +34,9 @@ export default function Nav() {
           ))}
           <Link href="/sale" className="font-medium text-[var(--color-gold)] transition hover:brightness-90">
             Sale
+          </Link>
+          <Link href="/faq" className="transition hover:text-ink">
+            FAQ
           </Link>
         </nav>
 
@@ -76,6 +91,13 @@ export default function Nav() {
             className="rounded-lg px-2 py-2.5 text-sm font-medium text-[var(--color-gold)] transition hover:bg-cream-raised"
           >
             Sale
+          </Link>
+          <Link
+            href="/faq"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-2 py-2.5 text-sm text-ink-soft transition hover:bg-cream-raised hover:text-ink"
+          >
+            FAQ
           </Link>
           <a
             href="https://www.instagram.com/cotonel.lb"

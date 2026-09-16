@@ -121,6 +121,12 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
         .filter(Boolean),
       stock: stock.trim() === "" ? undefined : Number(stock),
     };
+
+    if (payload.stock === undefined) {
+      setError("Stock is required — enter 0 if the item is sold out.");
+      setSaving(false);
+      return;
+    }
     const res = await fetch(isEditing ? `/api/admin/products/${initial!.id}` : "/api/admin/products", {
       method: isEditing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
@@ -307,17 +313,19 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
       </div>
 
       <div>
-        <label className="text-sm text-ink-soft">Stock (optional)</label>
+        <label className="text-sm text-ink-soft">Stock (required)</label>
         <input
           type="number"
           min={0}
+          required
           value={stock}
           onChange={(e) => setStock(e.target.value)}
           placeholder="e.g. 4"
           className="mt-1 w-full max-w-[10rem] rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
         />
         <p className="mt-1 text-xs text-ink-faint">
-          Leave blank to hide stock info. This is what will later sync from Cotonel store management.
+          Enter 0 to mark it Sold Out. At 1 or 2 left, the site shows a &quot;last piece&quot;
+          notice. This is what will later sync from Cotonel store management.
         </p>
       </div>
 
