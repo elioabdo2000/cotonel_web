@@ -29,7 +29,7 @@ const ProductSchema = new Schema<ProductDoc>({
   category: { type: String, required: true, enum: categorySlugs },
   image: { type: String, required: true },
   images: { type: [String], default: undefined },
-  gender: { type: String, enum: ["men", "women", "unisex"] },
+  gender: { type: String, enum: ["men", "women", "unisex"] as const },
   featured: { type: Boolean, default: false },
   bestseller: { type: Boolean, default: false },
   onSale: { type: Boolean, default: false },
