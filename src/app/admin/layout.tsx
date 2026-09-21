@@ -14,6 +14,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Cotonel — Admin
             </Link>
             <div className="flex items-center gap-5 text-sm text-ink-soft">
+              <Link href="/admin/hero" className="hover:text-ink">
+                Homepage carousel
+              </Link>
               <Link href="/admin/categories" className="hover:text-ink">
                 Category covers
               </Link>

@@ -5,6 +5,7 @@ import Photo from "./Photo";
 import type { ProductDoc } from "@/models/Product";
 import { stockState } from "@/lib/stock";
 import { site } from "@/data/site";
+import { useSwipe } from "@/lib/useSwipe";
 
 // Pops open with everything a shopper needs before ordering: price, sizes,
 // colors, and how many are left. Once the site is wired up to Cotonel store
@@ -41,6 +42,9 @@ export default function ProductModal({
   if (!product) return null;
 
   const gallery = [product.image, ...(product.images ?? [])];
+  const nextImage = () => setActiveImage((i) => (i + 1) % gallery.length);
+  const prevImage = () => setActiveImage((i) => (i - 1 + gallery.length) % gallery.length);
+  const swipeHandlers = useSwipe(nextImage, prevImage);
   const stock = stockState(product.stock);
   const outOfStock = stock.soldOut;
   const isOnSale = Boolean(product.onSale && product.salePrice);
@@ -60,7 +64,7 @@ export default function ProductModal({
         className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-cream-raised sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative">
+        <div className="relative" {...swipeHandlers}>
           <Photo
             src={gallery[activeImage]}
             alt={product.name}

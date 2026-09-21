@@ -38,7 +38,7 @@ export default function CategoryCircles({
         <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-cream to-transparent sm:w-10" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-cream to-transparent sm:w-10" />
 
-        <div className="flex snap-x snap-mandatory gap-6 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-8">
+        <div className="flex snap-x snap-mandatory justify-between gap-6 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-8">
           {withThumbnails.map(({ category, image }) => (
             <Link
               key={category.slug}

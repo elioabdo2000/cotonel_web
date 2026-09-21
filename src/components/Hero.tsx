@@ -1,40 +1,62 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
-import { heroSlides } from "@/data/heroSlides";
+import Photo from "./Photo";
+import { useSwipe } from "@/lib/useSwipe";
 
 const AUTOPLAY_MS = 15000;
 
-// The homepage cover carousel. Each slide can be a photo or a video (see
-// data/heroSlides.ts). Photo slides auto-advance on a timer; a video slide
-// advances itself when the clip ends, so nothing gets cut off mid-play.
-export default function Hero() {
+export interface HeroSlideItem {
+  type: "image" | "video";
+  src: string;
+  poster?: string;
+  alt: string;
+  headline?: string;
+  subheading?: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+  focus?: string;
+}
+
+// The homepage cover carousel. Slides come from the admin (/admin/hero) via
+// the `slides` prop — the parent page passes a built-in fallback set if
+// none have been added yet, so this component never needs to know which.
+// Photo slides auto-advance on a timer; a video slide advances itself when
+// the clip ends, so nothing gets cut off mid-play. Supports left/right swipe
+// on touch devices as well as the arrow buttons and dots.
+export default function Hero({ slides }: { slides: HeroSlideItem[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const slide = heroSlides[index];
+  const slide = slides[index];
 
-  const goTo = useCallback((next: number) => {
-    setIndex((next + heroSlides.length) % heroSlides.length);
-  }, []);
+  const goTo = useCallback(
+    (next: number) => {
+      setIndex((next + slides.length) % slides.length);
+    },
+    [slides.length]
+  );
 
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
+  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
+  const swipeHandlers = useSwipe(next, prev);
 
   useEffect(() => {
-    if (paused || slide.type === "video" || heroSlides.length <= 1) return;
+    if (paused || slide?.type === "video" || slides.length <= 1) return;
     const timer = setTimeout(next, AUTOPLAY_MS);
     return () => clearTimeout(timer);
-  }, [index, paused, slide.type, next]);
+  }, [index, paused, slide?.type, next, slides.length]);
 
   useEffect(() => {
-    if (slide.type === "video" && videoRef.current) {
+    if (slide?.type === "video" && videoRef.current) {
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(() => {
         /* autoplay can be blocked before user interaction — fine, poster shows */
       });
     }
-  }, [index, slide.type]);
+  }, [index, slide?.type]);
+
+  if (!slide) return null;
 
   return (
     <section
@@ -42,7 +64,10 @@ export default function Hero() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-ink shadow-lg sm:aspect-[16/8] sm:rounded-3xl sm:shadow-xl">
+      <div
+        className="relative aspect-[4/5] w-full overflow-hidden bg-ink shadow-lg sm:aspect-[16/8] sm:rounded-3xl sm:shadow-xl"
+        {...swipeHandlers}
+      >
         {slide.type === "video" ? (
           <video
             ref={videoRef}
@@ -57,14 +82,12 @@ export default function Hero() {
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <Image
+          <Photo
             key={slide.src}
             src={slide.src}
             alt={slide.alt}
-            fill
-            sizes="(max-width: 640px) 100vw, 1152px"
-            priority={index === 0}
-            style={{ objectFit: "cover", objectPosition: slide.focus ?? "center" }}
+            style={{ objectPosition: slide.focus ?? "center" }}
+            className="absolute inset-0 h-full w-full object-cover"
           />
         )}
 
@@ -93,12 +116,12 @@ export default function Hero() {
           )}
         </div>
 
-        {heroSlides.length > 1 && (
+        {slides.length > 1 && (
           <>
             <button
               type="button"
               aria-label="Previous slide"
-              onClick={() => goTo(index - 1)}
+              onClick={prev}
               className="absolute left-3 top-4 rounded-full bg-black/25 p-3 text-cream-raised transition hover:bg-black/40 sm:left-5 sm:top-6"
             >
               <ChevronIcon direction="left" />
@@ -115,11 +138,11 @@ export default function Hero() {
         )}
       </div>
 
-      {heroSlides.length > 1 && (
+      {slides.length > 1 && (
         <div className="mt-2 flex items-center justify-center gap-1">
-          {heroSlides.map((s, i) => (
+          {slides.map((s, i) => (
             <button
-              key={s.src}
+              key={s.src + i}
               type="button"
               aria-label={`Go to slide ${i + 1}`}
               onClick={() => goTo(i)}
