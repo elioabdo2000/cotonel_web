@@ -3,6 +3,11 @@ import { categories } from "@/data/categories";
 
 const categorySlugs = categories.map((c) => c.slug);
 
+export interface SizeStock {
+  size: string; // e.g. "M"
+  quantity: number; // units left in this size — 0 shows that size as Sold Out
+}
+
 export interface ProductDoc {
   _id: string;
   name: string;
@@ -16,11 +21,20 @@ export interface ProductDoc {
   bestseller?: boolean; // shown in the homepage Bestsellers section
   onSale?: boolean; // shows salePrice struck-through against price, and lists in the Sale section
   salePrice?: string; // the discounted price — only shown/used while onSale is true
-  sizes?: string[]; // e.g. ["S", "M", "L"] — leave empty to hide the size picker
+  sizes?: string[]; // just the size names, kept in sync with sizeStock (and used by older products)
+  sizeStock?: SizeStock[]; // quantity per size — when present, `stock` is the sum of these
   colors?: string[]; // e.g. ["Black", "Ivory"] — leave empty to hide the color picker
-  stock: number; // units left — required; 0 shows as Sold Out
+  stock: number; // units left in total — required; 0 shows as Sold Out. Auto-calculated when sizeStock is used
   createdAt: Date;
 }
+
+const SizeStockSchema = new Schema<SizeStock>(
+  {
+    size: { type: String, required: true, trim: true },
+    quantity: { type: Number, min: 0, required: true, default: 0 },
+  },
+  { _id: false }
+);
 
 const ProductSchema = new Schema<ProductDoc>({
   name: { type: String, required: true, trim: true },
@@ -35,6 +49,7 @@ const ProductSchema = new Schema<ProductDoc>({
   onSale: { type: Boolean, default: false },
   salePrice: { type: String, trim: true },
   sizes: { type: [String], default: undefined },
+  sizeStock: { type: [SizeStockSchema], default: undefined },
   colors: { type: [String], default: undefined },
   stock: { type: Number, min: 0, required: true, default: 0 },
   createdAt: { type: Date, default: Date.now },

@@ -28,6 +28,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           onSale: Boolean(product.onSale),
           salePrice: product.salePrice ?? "",
           sizes: product.sizes ?? [],
+          sizeStock: product.sizeStock ?? [],
           colors: product.colors ?? [],
           stock: product.stock,
         }}

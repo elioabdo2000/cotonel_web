@@ -18,9 +18,17 @@ export interface ProductFormValues {
   bestseller?: boolean;
   onSale?: boolean;
   salePrice?: string;
-  sizes?: string[];
+  sizes?: string[]; // older products only have names — quantities get filled in on next save
+  sizeStock?: { size: string; quantity: number }[];
   colors?: string[];
   stock?: number;
+}
+
+const QUICK_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+
+interface SizeRow {
+  size: string;
+  quantity: string; // kept as text so the input can be empty while typing
 }
 
 export default function ProductForm({ initial }: { initial?: ProductFormValues }) {
@@ -38,7 +46,13 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
   const [bestseller, setBestseller] = useState(initial?.bestseller ?? false);
   const [onSale, setOnSale] = useState(initial?.onSale ?? false);
   const [salePrice, setSalePrice] = useState(initial?.salePrice ?? "");
-  const [sizes, setSizes] = useState((initial?.sizes ?? []).join(", "));
+  const [sizeRows, setSizeRows] = useState<SizeRow[]>(() => {
+    if (initial?.sizeStock?.length) {
+      return initial.sizeStock.map((r) => ({ size: r.size, quantity: String(r.quantity) }));
+    }
+    // Older product: it has size names but no quantities yet — the admin fills them in.
+    return (initial?.sizes ?? []).map((size) => ({ size, quantity: "" }));
+  });
   const [colors, setColors] = useState((initial?.colors ?? []).join(", "));
   const [stock, setStock] = useState(initial?.stock !== undefined ? String(initial.stock) : "");
 
@@ -77,6 +91,19 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
     e.target.value = "";
   }
 
+  const hasSizes = sizeRows.length > 0;
+  const totalQuantity = sizeRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+
+  function addSizeRow(size = "") {
+    setSizeRows((rows) => [...rows, { size, quantity: "" }]);
+  }
+  function updateSizeRow(index: number, patch: Partial<SizeRow>) {
+    setSizeRows((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+  function removeSizeRow(index: number) {
+    setSizeRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
   function setCover(url: string) {
     setImages((prev) => {
       const withoutNew = prev.filter((u) => u !== url);
@@ -98,6 +125,26 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
       return;
     }
 
+    // Validate the size rows: every size needs a name and a whole-number quantity.
+    const names = new Set<string>();
+    for (const row of sizeRows) {
+      const name = row.size.trim().toLowerCase();
+      const qty = Number(row.quantity);
+      if (!name) {
+        setError("Every size needs a name — fill it in or remove the empty row.");
+        return;
+      }
+      if (row.quantity.trim() === "" || !Number.isInteger(qty) || qty < 0) {
+        setError(`Enter a quantity for size ${row.size.trim()} (use 0 if it's sold out).`);
+        return;
+      }
+      if (names.has(name)) {
+        setError(`Size ${row.size.trim()} is listed twice.`);
+        return;
+      }
+      names.add(name);
+    }
+
     setSaving(true);
     const payload = {
       name,
@@ -111,18 +158,17 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
       bestseller,
       onSale,
       salePrice,
-      sizes: sizes
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      // Empty list = no sizes, so the size picker is hidden on the site.
+      sizeStock: sizeRows.map((r) => ({ size: r.size.trim(), quantity: Number(r.quantity) })),
       colors: colors
         .split(",")
         .map((c) => c.trim())
         .filter(Boolean),
-      stock: stock.trim() === "" ? undefined : Number(stock),
+      // With sizes, the server adds the quantities up to get the total stock.
+      stock: hasSizes ? undefined : stock.trim() === "" ? undefined : Number(stock),
     };
 
-    if (payload.stock === undefined) {
+    if (!hasSizes && payload.stock === undefined) {
       setError("Stock is required — enter 0 if the item is sold out.");
       setSaving(false);
       return;
@@ -289,45 +335,107 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm text-ink-soft">Sizes (optional)</label>
-          <input
-            value={sizes}
-            onChange={(e) => setSizes(e.target.value)}
-            placeholder="S, M, L, XL"
-            className="mt-1 w-full rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-          />
-          <p className="mt-1 text-xs text-ink-faint">Comma-separated. Leave blank to hide the size picker.</p>
-        </div>
-        <div>
-          <label className="text-sm text-ink-soft">Colors (optional)</label>
-          <input
-            value={colors}
-            onChange={(e) => setColors(e.target.value)}
-            placeholder="Ivory, Sage, Black"
-            className="mt-1 w-full rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-          />
-          <p className="mt-1 text-xs text-ink-faint">Comma-separated. Leave blank to hide the color picker.</p>
+      <div className="rounded-lg border border-line bg-cream-raised p-4">
+        <label className="text-sm text-ink-soft">Sizes &amp; quantities (optional)</label>
+        <p className="mt-1 text-xs text-ink-faint">
+          Add each size with how many you have. When a size reaches 0 it shows as Sold Out on the
+          site and can&apos;t be picked. Leave empty if this product has no sizes.
+        </p>
+
+        {hasSizes && (
+          <div className="mt-3 flex flex-col gap-2">
+            {sizeRows.map((row, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  value={row.size}
+                  onChange={(e) => updateSizeRow(i, { size: e.target.value })}
+                  placeholder="Size (e.g. M)"
+                  aria-label="Size name"
+                  className="w-32 rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={row.quantity}
+                  onChange={(e) => updateSizeRow(i, { quantity: e.target.value })}
+                  placeholder="Qty"
+                  aria-label={`Quantity for size ${row.size || i + 1}`}
+                  className="w-24 rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
+                />
+                {row.quantity.trim() !== "" && Number(row.quantity) === 0 && (
+                  <span className="text-xs text-blush-deep">Sold out</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeSizeRow(i)}
+                  className="ml-auto text-xs text-blush-deep hover:brightness-90"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <p className="mt-1 text-xs text-ink-soft">Total in stock: {totalQuantity}</p>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {QUICK_SIZES.filter(
+            (q) => !sizeRows.some((r) => r.size.trim().toLowerCase() === q.toLowerCase())
+          ).map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => addSizeRow(q)}
+              className="rounded-full border border-line px-3 py-1 text-xs text-ink hover:border-sage"
+            >
+              + {q}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => addSizeRow()}
+            className="rounded-full border border-dashed border-line px-3 py-1 text-xs text-ink-soft hover:border-sage"
+          >
+            + Custom size
+          </button>
         </div>
       </div>
 
       <div>
-        <label className="text-sm text-ink-soft">Stock (required)</label>
+        <label className="text-sm text-ink-soft">Colors (optional)</label>
         <input
-          type="number"
-          min={0}
-          required
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
-          placeholder="e.g. 4"
-          className="mt-1 w-full max-w-[10rem] rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
+          value={colors}
+          onChange={(e) => setColors(e.target.value)}
+          placeholder="Ivory, Sage, Black"
+          className="mt-1 w-full rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
         />
-        <p className="mt-1 text-xs text-ink-faint">
-          Enter 0 to mark it Sold Out. At 1 or 2 left, the site shows a &quot;last piece&quot;
-          notice. This is what will later sync from Cotonel store management.
-        </p>
+        <p className="mt-1 text-xs text-ink-faint">Comma-separated. Leave blank to hide the color picker.</p>
       </div>
+
+      {hasSizes ? (
+        <p className="text-sm text-ink-soft">
+          Total stock: <span className="font-medium text-ink">{totalQuantity}</span> — calculated
+          from the sizes above. The product shows as Sold Out when every size is at 0.
+        </p>
+      ) : (
+        <div>
+          <label className="text-sm text-ink-soft">Stock (required)</label>
+          <input
+            type="number"
+            min={0}
+            required
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            placeholder="e.g. 4"
+            className="mt-1 w-full max-w-[10rem] rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
+          />
+          <p className="mt-1 text-xs text-ink-faint">
+            Enter 0 to mark it Sold Out. At 1 or 2 left, the site shows a &quot;last piece&quot;
+            notice. This is what will later sync from Cotonel store management.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm text-ink-soft">

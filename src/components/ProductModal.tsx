@@ -39,14 +39,25 @@ export default function ProductModal({
     };
   }, [product, onClose]);
 
+  const galleryLength = product ? 1 + (product.images?.length ?? 0) : 1;
+  const nextImage = () => setActiveImage((i) => (i + 1) % galleryLength);
+  const prevImage = () => setActiveImage((i) => (i - 1 + galleryLength) % galleryLength);
+  const swipeHandlers = useSwipe(nextImage, prevImage);
+
   if (!product) return null;
 
   const gallery = [product.image, ...(product.images ?? [])];
-  const nextImage = () => setActiveImage((i) => (i + 1) % gallery.length);
-  const prevImage = () => setActiveImage((i) => (i - 1 + gallery.length) % gallery.length);
-  const swipeHandlers = useSwipe(nextImage, prevImage);
   const stock = stockState(product.stock);
   const outOfStock = stock.soldOut;
+
+  // Sizes with a quantity each. Older products only have size names (no quantities),
+  // so for those every size stays available until the admin fills the quantities in.
+  const sizeOptions: { size: string; quantity?: number }[] = product.sizeStock?.length
+    ? product.sizeStock
+    : (product.sizes ?? []).map((s) => ({ size: s }));
+  const hasSizeQuantities = Boolean(product.sizeStock?.length);
+  const selectedSize = sizeOptions.find((o) => o.size === size);
+  const selectedSizeStock = hasSizeQuantities && selectedSize ? stockState(selectedSize.quantity) : null;
   const isOnSale = Boolean(product.onSale && product.salePrice);
 
   const parts = [`Hi! I'm interested in the ${product.name}`];
@@ -134,7 +145,9 @@ export default function ProductModal({
             <p className="mt-4 text-sm leading-relaxed text-ink-soft">{product.description}</p>
           )}
 
-          {stock.label && (
+          {/* With per-size quantities the total isn't useful — show it only once everything is gone;
+              otherwise the label for the chosen size appears under the size buttons. */}
+          {stock.label && (!hasSizeQuantities || stock.soldOut) && (
             <p
               className={`mt-4 text-sm font-medium ${
                 stock.soldOut || stock.urgent || stock.low ? "text-blush-deep" : "text-sage-deep"
@@ -144,25 +157,43 @@ export default function ProductModal({
             </p>
           )}
 
-          {product.sizes && product.sizes.length > 0 && (
+          {sizeOptions.length > 0 && (
             <div className="mt-5">
               <p className="text-sm text-ink-soft">Size</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {product.sizes.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSize(s === size ? null : s)}
-                    className={`rounded-full border px-4 py-1.5 text-sm transition ${
-                      s === size
-                        ? "border-ink bg-ink text-cream-raised"
-                        : "border-line text-ink hover:border-sage"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+                {sizeOptions.map((o) => {
+                  const soldOut = o.quantity !== undefined && o.quantity <= 0;
+                  return (
+                    <button
+                      key={o.size}
+                      type="button"
+                      disabled={soldOut}
+                      aria-disabled={soldOut}
+                      title={soldOut ? "Sold out" : undefined}
+                      onClick={() => setSize(o.size === size ? null : o.size)}
+                      className={`rounded-full border px-4 py-1.5 text-sm transition ${
+                        soldOut
+                          ? "cursor-not-allowed border-line text-ink-faint opacity-50"
+                          : o.size === size
+                            ? "border-ink bg-ink text-cream-raised"
+                            : "border-line text-ink hover:border-sage"
+                      }`}
+                    >
+                      <span className={soldOut ? "line-through" : ""}>{o.size}</span>
+                      {soldOut && <span className="ml-1.5 text-[10px]">Sold out</span>}
+                    </button>
+                  );
+                })}
               </div>
+              {selectedSizeStock?.label && !selectedSizeStock.soldOut && (
+                <p
+                  className={`mt-2 text-xs font-medium ${
+                    selectedSizeStock.urgent || selectedSizeStock.low ? "text-blush-deep" : "text-sage-deep"
+                  }`}
+                >
+                  {selectedSizeStock.label}
+                </p>
+              )}
             </div>
           )}
 
