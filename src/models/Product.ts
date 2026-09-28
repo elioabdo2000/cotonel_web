@@ -24,6 +24,7 @@ export interface ProductDoc {
   images?: string[]; // extra gallery photos — only shown in the product details popup
   gender?: "men" | "women" | "unisex"; // powers the Men/Women tabs on a category page
   featured?: boolean; // shown as the category's large lifestyle photo
+  archived?: boolean; // hidden from the site but kept in the admin (e.g. last season) — can be restored any time
   bestseller?: boolean; // shown in the homepage Bestsellers section
   onSale?: boolean; // shows salePrice struck-through against price, and lists in the Sale section
   salePrice?: string; // the discounted price — only shown/used while onSale is true
@@ -61,6 +62,7 @@ const ProductSchema = new Schema<ProductDoc>({
   images: { type: [String], default: undefined },
   gender: { type: String, enum: ["men", "women", "unisex"] as const },
   featured: { type: Boolean, default: false },
+  archived: { type: Boolean, default: false },
   bestseller: { type: Boolean, default: false },
   onSale: { type: Boolean, default: false },
   salePrice: { type: String, trim: true },

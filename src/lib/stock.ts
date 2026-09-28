@@ -108,3 +108,26 @@ export function deriveFromColorStock(colorStock: CleanColorStock[]) {
     stock,
   };
 }
+
+// The quantity to show on the site and in the admin. It comes ONLY from the per-color /
+// per-size quantities when a product has them, never from the old single `stock` number.
+// A product that has sizes or colors but no quantities yet returns undefined ("not set
+// yet") instead of falling back to an old stock value. Only a product with no sizes and
+// no colors uses its plain `stock`.
+export function availableStock(p: {
+  stock?: number;
+  sizes?: string[];
+  colors?: string[];
+  sizeStock?: { quantity: number }[];
+  colorStock?: { quantity?: number; sizes?: { quantity: number }[] }[];
+}): number | undefined {
+  if (p.colorStock?.length) {
+    return p.colorStock.reduce(
+      (sum, c) => sum + (c.sizes?.length ? c.sizes.reduce((n, s) => n + s.quantity, 0) : (c.quantity ?? 0)),
+      0
+    );
+  }
+  if (p.sizeStock?.length) return totalStock(p.sizeStock);
+  if (p.sizes?.length || p.colors?.length) return undefined;
+  return p.stock;
+}

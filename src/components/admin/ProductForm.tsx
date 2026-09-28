@@ -157,19 +157,14 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
         sizes: (c.sizes ?? []).map((r) => ({ size: r.size, quantity: String(r.quantity) })),
       }));
     }
-    // Older product with plain color names: give every color the product's sizes. With a
-    // single color the old quantities carry over; with several the admin fills them in.
+    // Older product with plain color names: every color starts with the product's size names
+    // and EMPTY quantities — nothing from the old stock is carried over, you enter the new numbers.
     const legacyColors = initial?.colors ?? [];
-    const legacySizes = initial?.sizeStock?.length
-      ? initial.sizeStock
-      : (initial?.sizes ?? []).map((size) => ({ size, quantity: undefined as number | undefined }));
+    const legacySizeNames = initial?.sizes ?? [];
     return legacyColors.map((color) => ({
       color,
       quantity: "",
-      sizes: legacySizes.map((r) => ({
-        size: r.size,
-        quantity: legacyColors.length === 1 && r.quantity !== undefined ? String(r.quantity) : "",
-      })),
+      sizes: legacySizeNames.map((size) => ({ size, quantity: "" })),
     }));
   });
   const [stock, setStock] = useState(initial?.stock !== undefined ? String(initial.stock) : "");

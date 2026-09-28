@@ -4,7 +4,7 @@ import Photo from "./Photo";
 import OrderButton from "./OrderButton";
 import TiltCard from "./TiltCard";
 import { useProductModal } from "./ProductModalContext";
-import { stockState } from "@/lib/stock";
+import { availableStock, stockState } from "@/lib/stock";
 import type { ProductDoc } from "@/models/Product";
 
 export default function ProductCard({
@@ -15,7 +15,7 @@ export default function ProductCard({
   accent: "sage" | "blue" | "blush";
 }) {
   const { open } = useProductModal();
-  const stock = stockState(product.stock);
+  const stock = stockState(availableStock(product));
   const isOnSale = Boolean(product.onSale && product.salePrice);
 
   return (

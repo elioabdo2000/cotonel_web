@@ -20,7 +20,7 @@ export default async function CategoryPage({
   if (!category) notFound();
 
   await connectDB();
-  const raw = await Product.find({ category: slug }).sort({ createdAt: -1 }).lean();
+  const raw = await Product.find({ category: slug, archived: { $ne: true } }).sort({ createdAt: -1 }).lean();
   const products = serializeProducts(raw as Record<string, unknown>[]);
 
   return (

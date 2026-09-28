@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SalePage() {
   await connectDB();
-  const raw = await Product.find({ onSale: true }).sort({ createdAt: -1 }).lean();
+  const raw = await Product.find({ onSale: true, archived: { $ne: true } }).sort({ createdAt: -1 }).lean();
   const products = serializeProducts(raw as Record<string, unknown>[]).filter((p) => p.salePrice);
 
   return (

@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   await connectDB();
   const [rawProducts, rawCovers, rawHeroSlides] = await Promise.all([
-    Product.find().sort({ createdAt: -1 }).lean(),
+    Product.find({ archived: { $ne: true } }).sort({ createdAt: -1 }).lean(),
     CategoryCover.find().lean() as unknown as Promise<CategoryCoverDoc[]>,
     HeroSlideModel.find().sort({ order: 1 }).lean() as unknown as Promise<HeroSlideDoc[]>,
   ]);

@@ -19,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     gender,
     featured,
     bestseller,
+    archived,
     onSale,
     salePrice,
     colors,
@@ -49,6 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof gender === "string") updates.gender = validGenders.has(gender) ? gender : undefined;
   if (typeof featured === "boolean") updates.featured = featured;
   if (typeof bestseller === "boolean") updates.bestseller = bestseller;
+  if (typeof archived === "boolean") updates.archived = archived;
   if (typeof onSale === "boolean") updates.onSale = onSale;
   if (typeof salePrice === "string") updates.salePrice = salePrice.trim();
   // Per-color stock wins over everything else about sizes/colors/stock: when a product has

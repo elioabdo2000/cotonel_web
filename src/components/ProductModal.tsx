@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Photo from "./Photo";
 import type { ColorStock, ProductDoc } from "@/models/Product";
-import { stockState } from "@/lib/stock";
+import { availableStock, stockState } from "@/lib/stock";
 import { site } from "@/data/site";
 import { useSwipe } from "@/lib/useSwipe";
 
@@ -47,7 +47,7 @@ export default function ProductModal({
   if (!product) return null;
 
   const gallery = [product.image, ...(product.images ?? [])];
-  const stock = stockState(product.stock);
+  const stock = stockState(availableStock(product));
   const outOfStock = stock.soldOut;
 
   // Stock is tracked per color and size when the product has colorStock, per size when it
@@ -89,7 +89,6 @@ export default function ProductModal({
     selectionQty = productSizes.find((o) => o.size === activeSize)?.quantity;
   }
   const selection = selectionQty !== undefined ? stockState(selectionQty) : null;
-  const tracksVariants = Boolean(colorStock || product.sizeStock?.length);
   const isOnSale = Boolean(product.onSale && product.salePrice);
 
   const parts = [`Hi! I'm interested in the ${product.name}`];
@@ -208,7 +207,7 @@ export default function ProductModal({
 
           {/* With per-size quantities the total isn't useful — show it only once everything is gone;
               otherwise the label for the chosen size appears under the size buttons. */}
-          {stock.label && (!tracksVariants || stock.soldOut) && (
+          {stock.label && (
             <p
               className={`mt-4 text-sm font-medium ${
                 stock.soldOut || stock.urgent || stock.low ? "text-blush-deep" : "text-sage-deep"
