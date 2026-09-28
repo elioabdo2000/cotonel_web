@@ -30,6 +30,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           sizes: product.sizes ?? [],
           sizeStock: product.sizeStock ?? [],
           colors: product.colors ?? [],
+          colorStock: product.colorStock ?? [],
           stock: product.stock,
         }}
       />

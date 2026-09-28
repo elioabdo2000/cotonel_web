@@ -21,6 +21,7 @@ export interface ProductFormValues {
   sizes?: string[]; // older products only have names — quantities get filled in on next save
   sizeStock?: { size: string; quantity: number }[];
   colors?: string[];
+  colorStock?: { color: string; quantity?: number; sizes?: { size: string; quantity: number }[] }[];
   stock?: number;
 }
 
@@ -30,6 +31,98 @@ interface SizeRow {
   size: string;
   quantity: string; // kept as text so the input can be empty while typing
 }
+
+interface ColorRow {
+  color: string;
+  quantity: string; // only used when the color has no sizes
+  sizes: SizeRow[];
+}
+
+const inputCls =
+  "rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage";
+
+// The rows of "size + quantity" with quick-add buttons. Used once for a product without
+// colors, and once inside every color card.
+function SizeRowsEditor({ rows, onChange }: { rows: SizeRow[]; onChange: (rows: SizeRow[]) => void }) {
+  const update = (i: number, patch: Partial<SizeRow>) =>
+    onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  return (
+    <div>
+      {rows.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2">
+          {rows.map((row, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={row.size}
+                onChange={(e) => update(i, { size: e.target.value })}
+                placeholder="Size (e.g. M)"
+                aria-label="Size name"
+                className={`w-32 ${inputCls}`}
+              />
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={row.quantity}
+                onChange={(e) => update(i, { quantity: e.target.value })}
+                placeholder="Qty"
+                aria-label={`Quantity for size ${row.size || i + 1}`}
+                className={`w-24 ${inputCls}`}
+              />
+              {row.quantity.trim() !== "" && Number(row.quantity) === 0 && (
+                <span className="text-xs text-blush-deep">Sold out</span>
+              )}
+              <button
+                type="button"
+                onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+                className="ml-auto text-xs text-blush-deep hover:brightness-90"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {QUICK_SIZES.filter((q) => !rows.some((r) => r.size.trim().toLowerCase() === q.toLowerCase())).map((q) => (
+          <button
+            key={q}
+            type="button"
+            onClick={() => onChange([...rows, { size: q, quantity: "" }])}
+            className="rounded-full border border-line px-3 py-1 text-xs text-ink hover:border-sage"
+          >
+            + {q}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange([...rows, { size: "", quantity: "" }])}
+          className="rounded-full border border-dashed border-line px-3 py-1 text-xs text-ink-soft hover:border-sage"
+        >
+          + Custom size
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Returns an error message if any row is incomplete, else null.
+function sizeRowsError(rows: SizeRow[], where: string): string | null {
+  const names = new Set<string>();
+  for (const row of rows) {
+    const name = row.size.trim().toLowerCase();
+    const qty = Number(row.quantity);
+    if (!name) return `${where}Every size needs a name — fill it in or remove the empty row.`;
+    if (row.quantity.trim() === "" || !Number.isInteger(qty) || qty < 0) {
+      return `${where}Enter a quantity for size ${row.size.trim()} (use 0 if it's sold out).`;
+    }
+    if (names.has(name)) return `${where}Size ${row.size.trim()} is listed twice.`;
+    names.add(name);
+  }
+  return null;
+}
+
+const rowsTotal = (rows: SizeRow[]) => rows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
 
 export default function ProductForm({ initial }: { initial?: ProductFormValues }) {
   const router = useRouter();
@@ -46,14 +139,39 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
   const [bestseller, setBestseller] = useState(initial?.bestseller ?? false);
   const [onSale, setOnSale] = useState(initial?.onSale ?? false);
   const [salePrice, setSalePrice] = useState(initial?.salePrice ?? "");
+  // Product-level sizes — only used when the product has no colors.
   const [sizeRows, setSizeRows] = useState<SizeRow[]>(() => {
+    if (initial?.colorStock?.length || initial?.colors?.length) return []; // they live under the colors
     if (initial?.sizeStock?.length) {
       return initial.sizeStock.map((r) => ({ size: r.size, quantity: String(r.quantity) }));
     }
     // Older product: it has size names but no quantities yet — the admin fills them in.
     return (initial?.sizes ?? []).map((size) => ({ size, quantity: "" }));
   });
-  const [colors, setColors] = useState((initial?.colors ?? []).join(", "));
+  // Colors, each with its own sizes and quantities.
+  const [colorRows, setColorRows] = useState<ColorRow[]>(() => {
+    if (initial?.colorStock?.length) {
+      return initial.colorStock.map((c) => ({
+        color: c.color,
+        quantity: c.quantity !== undefined ? String(c.quantity) : "",
+        sizes: (c.sizes ?? []).map((r) => ({ size: r.size, quantity: String(r.quantity) })),
+      }));
+    }
+    // Older product with plain color names: give every color the product's sizes. With a
+    // single color the old quantities carry over; with several the admin fills them in.
+    const legacyColors = initial?.colors ?? [];
+    const legacySizes = initial?.sizeStock?.length
+      ? initial.sizeStock
+      : (initial?.sizes ?? []).map((size) => ({ size, quantity: undefined as number | undefined }));
+    return legacyColors.map((color) => ({
+      color,
+      quantity: "",
+      sizes: legacySizes.map((r) => ({
+        size: r.size,
+        quantity: legacyColors.length === 1 && r.quantity !== undefined ? String(r.quantity) : "",
+      })),
+    }));
+  });
   const [stock, setStock] = useState(initial?.stock !== undefined ? String(initial.stock) : "");
 
   const [uploading, setUploading] = useState(false);
@@ -91,17 +209,30 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
     e.target.value = "";
   }
 
+  const hasColors = colorRows.length > 0;
   const hasSizes = sizeRows.length > 0;
-  const totalQuantity = sizeRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+  const colorTotal = (c: ColorRow) => (c.sizes.length ? rowsTotal(c.sizes) : Number(c.quantity) || 0);
+  const totalQuantity = hasColors ? colorRows.reduce((sum, c) => sum + colorTotal(c), 0) : rowsTotal(sizeRows);
 
-  function addSizeRow(size = "") {
-    setSizeRows((rows) => [...rows, { size, quantity: "" }]);
+  function addColor() {
+    if (colorRows.length === 0) {
+      // First color: it takes over the sizes already entered for the product.
+      setColorRows([{ color: "", quantity: "", sizes: sizeRows }]);
+      setSizeRows([]);
+      return;
+    }
+    // Next colors start with the same size names as the previous one (quantities blank).
+    const last = colorRows[colorRows.length - 1];
+    setColorRows([
+      ...colorRows,
+      { color: "", quantity: "", sizes: last.sizes.map((r) => ({ size: r.size, quantity: "" })) },
+    ]);
   }
-  function updateSizeRow(index: number, patch: Partial<SizeRow>) {
-    setSizeRows((rows) => rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  function updateColor(index: number, patch: Partial<ColorRow>) {
+    setColorRows((rows) => rows.map((c, i) => (i === index ? { ...c, ...patch } : c)));
   }
-  function removeSizeRow(index: number) {
-    setSizeRows((rows) => rows.filter((_, i) => i !== index));
+  function removeColor(index: number) {
+    setColorRows((rows) => rows.filter((_, i) => i !== index));
   }
 
   function setCover(url: string) {
@@ -125,24 +256,36 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
       return;
     }
 
-    // Validate the size rows: every size needs a name and a whole-number quantity.
-    const names = new Set<string>();
-    for (const row of sizeRows) {
-      const name = row.size.trim().toLowerCase();
-      const qty = Number(row.quantity);
-      if (!name) {
-        setError("Every size needs a name — fill it in or remove the empty row.");
+    // Validate: every color needs a name, and every size a name and a whole-number quantity.
+    if (hasColors) {
+      const colorNames = new Set<string>();
+      for (const c of colorRows) {
+        const label = c.color.trim() || "a color";
+        if (!c.color.trim()) {
+          setError("Every color needs a name — fill it in or remove the empty one.");
+          return;
+        }
+        if (colorNames.has(c.color.trim().toLowerCase())) {
+          setError(`Color ${c.color.trim()} is listed twice.`);
+          return;
+        }
+        colorNames.add(c.color.trim().toLowerCase());
+        const problem = c.sizes.length
+          ? sizeRowsError(c.sizes, `${label}: `)
+          : c.quantity.trim() === "" || !Number.isInteger(Number(c.quantity)) || Number(c.quantity) < 0
+            ? `${label}: enter a quantity (use 0 if it's sold out), or add sizes.`
+            : null;
+        if (problem) {
+          setError(problem);
+          return;
+        }
+      }
+    } else {
+      const problem = sizeRowsError(sizeRows, "");
+      if (problem) {
+        setError(problem);
         return;
       }
-      if (row.quantity.trim() === "" || !Number.isInteger(qty) || qty < 0) {
-        setError(`Enter a quantity for size ${row.size.trim()} (use 0 if it's sold out).`);
-        return;
-      }
-      if (names.has(name)) {
-        setError(`Size ${row.size.trim()} is listed twice.`);
-        return;
-      }
-      names.add(name);
     }
 
     setSaving(true);
@@ -158,17 +301,23 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
       bestseller,
       onSale,
       salePrice,
-      // Empty list = no sizes, so the size picker is hidden on the site.
-      sizeStock: sizeRows.map((r) => ({ size: r.size.trim(), quantity: Number(r.quantity) })),
-      colors: colors
-        .split(",")
-        .map((c) => c.trim())
-        .filter(Boolean),
-      // With sizes, the server adds the quantities up to get the total stock.
-      stock: hasSizes ? undefined : stock.trim() === "" ? undefined : Number(stock),
+      // Empty list = no colors (no color picker on the site). With colors, the server works out
+      // each color's sizes, the size list and the total stock from these.
+      colorStock: colorRows.map((c) =>
+        c.sizes.length
+          ? {
+              color: c.color.trim(),
+              sizes: c.sizes.map((r) => ({ size: r.size.trim(), quantity: Number(r.quantity) })),
+            }
+          : { color: c.color.trim(), quantity: Number(c.quantity) }
+      ),
+      // Product-level sizes only apply when there are no colors. Empty list = no size picker.
+      sizeStock: hasColors ? undefined : sizeRows.map((r) => ({ size: r.size.trim(), quantity: Number(r.quantity) })),
+      // With sizes or colors, the server adds the quantities up to get the total stock.
+      stock: hasColors || hasSizes ? undefined : stock.trim() === "" ? undefined : Number(stock),
     };
 
-    if (!hasSizes && payload.stock === undefined) {
+    if (!hasColors && !hasSizes && payload.stock === undefined) {
       setError("Stock is required — enter 0 if the item is sold out.");
       setSaving(false);
       return;
@@ -335,88 +484,97 @@ export default function ProductForm({ initial }: { initial?: ProductFormValues }
         />
       </div>
 
-      <div className="rounded-lg border border-line bg-cream-raised p-4">
-        <label className="text-sm text-ink-soft">Sizes &amp; quantities (optional)</label>
-        <p className="mt-1 text-xs text-ink-faint">
-          Add each size with how many you have. When a size reaches 0 it shows as Sold Out on the
-          site and can&apos;t be picked. Leave empty if this product has no sizes.
-        </p>
+      {hasColors ? (
+        <div className="rounded-lg border border-line bg-cream-raised p-4">
+          <label className="text-sm text-ink-soft">Colors, sizes &amp; quantities</label>
+          <p className="mt-1 text-xs text-ink-faint">
+            Each color has its own sizes and quantities. A size at 0 shows as Sold Out for that
+            color; a color is Sold Out once all its sizes are at 0.
+          </p>
 
-        {hasSizes && (
-          <div className="mt-3 flex flex-col gap-2">
-            {sizeRows.map((row, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  value={row.size}
-                  onChange={(e) => updateSizeRow(i, { size: e.target.value })}
-                  placeholder="Size (e.g. M)"
-                  aria-label="Size name"
-                  className="w-32 rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={row.quantity}
-                  onChange={(e) => updateSizeRow(i, { quantity: e.target.value })}
-                  placeholder="Qty"
-                  aria-label={`Quantity for size ${row.size || i + 1}`}
-                  className="w-24 rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-                />
-                {row.quantity.trim() !== "" && Number(row.quantity) === 0 && (
-                  <span className="text-xs text-blush-deep">Sold out</span>
+          <div className="mt-3 flex flex-col gap-4">
+            {colorRows.map((c, i) => (
+              <div key={i} className="rounded-lg border border-line p-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={c.color}
+                    onChange={(e) => updateColor(i, { color: e.target.value })}
+                    placeholder="Color (e.g. Pink)"
+                    aria-label="Color name"
+                    className={`w-48 ${inputCls}`}
+                  />
+                  <span className="text-xs text-ink-soft">{colorTotal(c)} in stock</span>
+                  <button
+                    type="button"
+                    onClick={() => removeColor(i)}
+                    className="ml-auto text-xs text-blush-deep hover:brightness-90"
+                  >
+                    Remove color
+                  </button>
+                </div>
+
+                <SizeRowsEditor rows={c.sizes} onChange={(sizes) => updateColor(i, { sizes })} />
+
+                {c.sizes.length === 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={c.quantity}
+                      onChange={(e) => updateColor(i, { quantity: e.target.value })}
+                      placeholder="Qty"
+                      aria-label={`Quantity for ${c.color || "this color"}`}
+                      className={`w-24 ${inputCls}`}
+                    />
+                    <span className="text-xs text-ink-faint">
+                      No sizes for this color? Enter its quantity here.
+                    </span>
+                  </div>
                 )}
-                <button
-                  type="button"
-                  onClick={() => removeSizeRow(i)}
-                  className="ml-auto text-xs text-blush-deep hover:brightness-90"
-                >
-                  Remove
-                </button>
               </div>
             ))}
-            <p className="mt-1 text-xs text-ink-soft">Total in stock: {totalQuantity}</p>
           </div>
-        )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {QUICK_SIZES.filter(
-            (q) => !sizeRows.some((r) => r.size.trim().toLowerCase() === q.toLowerCase())
-          ).map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => addSizeRow(q)}
-              className="rounded-full border border-line px-3 py-1 text-xs text-ink hover:border-sage"
-            >
-              + {q}
-            </button>
-          ))}
           <button
             type="button"
-            onClick={() => addSizeRow()}
-            className="rounded-full border border-dashed border-line px-3 py-1 text-xs text-ink-soft hover:border-sage"
+            onClick={addColor}
+            className="mt-3 rounded-full border border-dashed border-line px-3 py-1 text-xs text-ink-soft hover:border-sage"
           >
-            + Custom size
+            + Add another color
           </button>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="rounded-lg border border-line bg-cream-raised p-4">
+            <label className="text-sm text-ink-soft">Sizes &amp; quantities (optional)</label>
+            <p className="mt-1 text-xs text-ink-faint">
+              Add each size with how many you have. When a size reaches 0 it shows as Sold Out on
+              the site and can&apos;t be picked. Leave empty if this product has no sizes.
+            </p>
+            <SizeRowsEditor rows={sizeRows} onChange={setSizeRows} />
+          </div>
 
-      <div>
-        <label className="text-sm text-ink-soft">Colors (optional)</label>
-        <input
-          value={colors}
-          onChange={(e) => setColors(e.target.value)}
-          placeholder="Ivory, Sage, Black"
-          className="mt-1 w-full rounded-lg border border-line bg-cream-raised px-3 py-2 text-sm text-ink outline-none focus:border-sage"
-        />
-        <p className="mt-1 text-xs text-ink-faint">Comma-separated. Leave blank to hide the color picker.</p>
-      </div>
+          <div>
+            <button
+              type="button"
+              onClick={addColor}
+              className="rounded-full border border-line px-4 py-1.5 text-sm text-ink hover:border-sage"
+            >
+              + Add colors
+            </button>
+            <p className="mt-1 text-xs text-ink-faint">
+              Does it come in several colors? Add them and give each color its own sizes and
+              quantities (the sizes above move under the first color).
+            </p>
+          </div>
+        </>
+      )}
 
-      {hasSizes ? (
+      {hasColors || hasSizes ? (
         <p className="text-sm text-ink-soft">
           Total stock: <span className="font-medium text-ink">{totalQuantity}</span> — calculated
-          from the sizes above. The product shows as Sold Out when every size is at 0.
+          from the quantities above. The product shows as Sold Out when everything is at 0.
         </p>
       ) : (
         <div>

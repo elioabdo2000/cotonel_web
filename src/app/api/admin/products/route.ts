@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
 import { categories } from "@/data/categories";
-import { cleanSizeStock, totalStock } from "@/lib/stock";
+import { cleanColorStock, cleanSizeStock, deriveFromColorStock, totalStock } from "@/lib/stock";
 
 const categorySlugs = new Set(categories.map((c) => c.slug));
 
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     onSale,
     salePrice,
     colors,
+    colorStock,
     sizeStock,
     stock,
   } = body ?? {};
@@ -43,6 +44,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Product photo is required" }, { status: 400 });
   }
 
+  // Colors, each with their own sizes + quantities. If there are any, they decide the
+  // product's sizes and total stock (the plain size list below is then ignored).
+  const cleanedColors = colorStock === undefined ? [] : cleanColorStock(colorStock);
+  if (cleanedColors === null) {
+    return NextResponse.json(
+      { error: "Each color needs a unique name, and sizes/quantities of 0 or more (whole numbers)" },
+      { status: 400 }
+    );
+  }
+  const hasColors = cleanedColors.length > 0;
+  const derived = hasColors ? deriveFromColorStock(cleanedColors) : null;
+
   // Sizes with a quantity each. If there are any, the product's total stock is their sum.
   const cleanedSizes = sizeStock === undefined ? [] : cleanSizeStock(sizeStock);
   if (cleanedSizes === null) {
@@ -52,7 +65,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const hasSizes = cleanedSizes.length > 0;
-  if (!hasSizes && (typeof stock !== "number" || Number.isNaN(stock) || stock < 0)) {
+  if (!hasColors && !hasSizes && (typeof stock !== "number" || Number.isNaN(stock) || stock < 0)) {
     return NextResponse.json({ error: "Stock is required (use 0 for sold out)" }, { status: 400 });
   }
 
@@ -72,10 +85,20 @@ export async function POST(req: NextRequest) {
     bestseller: Boolean(bestseller),
     onSale: Boolean(onSale),
     salePrice: typeof salePrice === "string" ? salePrice.trim() : undefined,
-    sizes: hasSizes ? cleanedSizes.map((s) => s.size) : undefined,
-    sizeStock: hasSizes ? cleanedSizes : undefined,
-    colors: Array.isArray(colors) && colors.length ? colors : undefined,
-    stock: hasSizes ? totalStock(cleanedSizes) : stock,
+    ...(derived
+      ? {
+          colors: derived.colors,
+          colorStock: cleanedColors,
+          sizes: derived.sizes,
+          sizeStock: derived.sizeStock,
+          stock: derived.stock,
+        }
+      : {
+          sizes: hasSizes ? cleanedSizes.map((s) => s.size) : undefined,
+          sizeStock: hasSizes ? cleanedSizes : undefined,
+          colors: Array.isArray(colors) && colors.length ? colors : undefined,
+          stock: hasSizes ? totalStock(cleanedSizes) : stock,
+        }),
   });
 
   return NextResponse.json({ product }, { status: 201 });

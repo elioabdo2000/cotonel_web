@@ -8,6 +8,12 @@ export interface SizeStock {
   quantity: number; // units left in this size — 0 shows that size as Sold Out
 }
 
+export interface ColorStock {
+  color: string; // e.g. "Pink"
+  sizes?: SizeStock[]; // this color's own sizes and quantities
+  quantity?: number; // only used when this color has no sizes
+}
+
 export interface ProductDoc {
   _id: string;
   name: string;
@@ -23,7 +29,8 @@ export interface ProductDoc {
   salePrice?: string; // the discounted price — only shown/used while onSale is true
   sizes?: string[]; // just the size names, kept in sync with sizeStock (and used by older products)
   sizeStock?: SizeStock[]; // quantity per size — when present, `stock` is the sum of these
-  colors?: string[]; // e.g. ["Black", "Ivory"] — leave empty to hide the color picker
+  colors?: string[]; // just the color names, kept in sync with colorStock (and used by older products)
+  colorStock?: ColorStock[]; // per-color sizes + quantities — when present, sizes/sizeStock/stock are derived from it
   stock: number; // units left in total — required; 0 shows as Sold Out. Auto-calculated when sizeStock is used
   createdAt: Date;
 }
@@ -32,6 +39,15 @@ const SizeStockSchema = new Schema<SizeStock>(
   {
     size: { type: String, required: true, trim: true },
     quantity: { type: Number, min: 0, required: true, default: 0 },
+  },
+  { _id: false }
+);
+
+const ColorStockSchema = new Schema<ColorStock>(
+  {
+    color: { type: String, required: true, trim: true },
+    sizes: { type: [SizeStockSchema], default: undefined },
+    quantity: { type: Number, min: 0 },
   },
   { _id: false }
 );
@@ -51,6 +67,7 @@ const ProductSchema = new Schema<ProductDoc>({
   sizes: { type: [String], default: undefined },
   sizeStock: { type: [SizeStockSchema], default: undefined },
   colors: { type: [String], default: undefined },
+  colorStock: { type: [ColorStockSchema], default: undefined },
   stock: { type: Number, min: 0, required: true, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Product } from "@/models/Product";
 import { categories } from "@/data/categories";
-import { cleanSizeStock, totalStock } from "@/lib/stock";
+import { cleanColorStock, cleanSizeStock, deriveFromColorStock, totalStock } from "@/lib/stock";
 
 const categorySlugs = new Set(categories.map((c) => c.slug));
 
@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     onSale,
     salePrice,
     colors,
+    colorStock,
     sizeStock,
     stock,
   } = body ?? {};
@@ -50,7 +51,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof bestseller === "boolean") updates.bestseller = bestseller;
   if (typeof onSale === "boolean") updates.onSale = onSale;
   if (typeof salePrice === "string") updates.salePrice = salePrice.trim();
-  if (sizeStock !== undefined) {
+  // Per-color stock wins over everything else about sizes/colors/stock: when a product has
+  // colors, its color list, size list and total are all worked out from them.
+  let colorsHandled = false;
+  if (colorStock !== undefined) {
+    const cleanedColors = cleanColorStock(colorStock);
+    if (cleanedColors === null) {
+      return NextResponse.json(
+        { error: "Each color needs a unique name, and sizes/quantities of 0 or more (whole numbers)" },
+        { status: 400 }
+      );
+    }
+    if (cleanedColors.length) {
+      const derived = deriveFromColorStock(cleanedColors);
+      updates.colorStock = cleanedColors;
+      updates.colors = derived.colors;
+      updates.stock = derived.stock;
+      if (derived.sizeStock) {
+        updates.sizes = derived.sizes;
+        updates.sizeStock = derived.sizeStock;
+      } else {
+        unset.sizes = 1;
+        unset.sizeStock = 1;
+      }
+      colorsHandled = true;
+    } else {
+      // no colors any more — remove them; sizes/stock then come from the fields below
+      unset.colorStock = 1;
+      unset.colors = 1;
+      colorsHandled = true;
+    }
+  }
+  // (when the product has colors, sizes/stock were already set from them above)
+  if (updates.colorStock === undefined && sizeStock !== undefined) {
     const cleaned = cleanSizeStock(sizeStock);
     if (cleaned === null) {
       return NextResponse.json(
@@ -68,7 +101,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       unset.sizes = 1;
     }
   }
-  if (Array.isArray(colors)) updates.colors = colors.length ? colors : undefined;
+  if (!colorsHandled && Array.isArray(colors)) updates.colors = colors.length ? colors : undefined;
   if (stock !== undefined && updates.stock === undefined) {
     if (typeof stock !== "number" || Number.isNaN(stock) || stock < 0) {
       return NextResponse.json({ error: "Stock must be 0 or more" }, { status: 400 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Photo from "./Photo";
-import type { ProductDoc } from "@/models/Product";
+import type { ColorStock, ProductDoc } from "@/models/Product";
 import { stockState } from "@/lib/stock";
 import { site } from "@/data/site";
 import { useSwipe } from "@/lib/useSwipe";
@@ -50,21 +50,82 @@ export default function ProductModal({
   const stock = stockState(product.stock);
   const outOfStock = stock.soldOut;
 
-  // Sizes with a quantity each. Older products only have size names (no quantities),
-  // so for those every size stays available until the admin fills the quantities in.
-  const sizeOptions: { size: string; quantity?: number }[] = product.sizeStock?.length
+  // Stock is tracked per color and size when the product has colorStock, per size when it
+  // only has sizeStock, and not at all for older products (everything stays selectable).
+  type Option = { size: string; quantity?: number };
+  const colorStock = product.colorStock?.length ? product.colorStock : null;
+  const colorTotal = (c: ColorStock) =>
+    c.sizes?.length ? c.sizes.reduce((n, s) => n + s.quantity, 0) : (c.quantity ?? 0);
+  const chosenColor = colorStock?.find((c) => c.color === color) ?? null;
+
+  const productSizes: Option[] = product.sizeStock?.length
     ? product.sizeStock
     : (product.sizes ?? []).map((s) => ({ size: s }));
-  const hasSizeQuantities = Boolean(product.sizeStock?.length);
-  const selectedSize = sizeOptions.find((o) => o.size === size);
-  const selectedSizeStock = hasSizeQuantities && selectedSize ? stockState(selectedSize.quantity) : null;
+  // Once a color is picked, show that color's own sizes (none if it has no sizes).
+  const sizeOptions: Option[] = chosenColor ? (chosenColor.sizes ?? []) : productSizes;
+  const activeSize = sizeOptions.some((o) => o.size === size && !(o.quantity !== undefined && o.quantity <= 0))
+    ? size
+    : null;
+
+  const colorOptions: { color: string; soldOut: boolean }[] = colorStock
+    ? colorStock.map((c) => {
+        const available =
+          activeSize && c.sizes?.length
+            ? (c.sizes.find((s) => s.size === activeSize)?.quantity ?? 0) > 0
+            : colorTotal(c) > 0;
+        return { color: c.color, soldOut: !available };
+      })
+    : (product.colors ?? []).map((c) => ({ color: c, soldOut: false }));
+
+  // How many are left of exactly what the shopper has picked so far.
+  let selectionQty: number | undefined;
+  if (chosenColor) {
+    selectionQty = chosenColor.sizes?.length
+      ? activeSize
+        ? chosenColor.sizes.find((s) => s.size === activeSize)?.quantity
+        : undefined
+      : chosenColor.quantity;
+  } else if (activeSize) {
+    selectionQty = productSizes.find((o) => o.size === activeSize)?.quantity;
+  }
+  const selection = selectionQty !== undefined ? stockState(selectionQty) : null;
+  const tracksVariants = Boolean(colorStock || product.sizeStock?.length);
   const isOnSale = Boolean(product.onSale && product.salePrice);
 
   const parts = [`Hi! I'm interested in the ${product.name}`];
-  if (size) parts.push(`size ${size}`);
+  if (activeSize) parts.push(`size ${activeSize}`);
   if (color) parts.push(`in ${color}`);
   const message = `${parts.join(", ")} — is it available?\n\n${product.image}`;
   const whatsappHref = `https://wa.me/${site.whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+  const colorBlock =
+    colorOptions.length > 0 ? (
+      <div className="mt-5">
+        <p className="text-sm text-ink-soft">Color</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {colorOptions.map(({ color: c, soldOut }) => (
+            <button
+              key={c}
+              type="button"
+              disabled={soldOut}
+              aria-disabled={soldOut}
+              title={soldOut ? "Sold out" : undefined}
+              onClick={() => setColor(c === color ? null : c)}
+              className={`rounded-full border px-4 py-1.5 text-sm transition ${
+                soldOut
+                  ? "cursor-not-allowed border-line text-ink-faint opacity-50"
+                  : c === color
+                    ? "border-ink bg-ink text-cream-raised"
+                    : "border-line text-ink hover:border-sage"
+              }`}
+            >
+              <span className={soldOut ? "line-through" : ""}>{c}</span>
+              {soldOut && <span className="ml-1.5 text-[10px]">Sold out</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div
@@ -147,7 +208,7 @@ export default function ProductModal({
 
           {/* With per-size quantities the total isn't useful — show it only once everything is gone;
               otherwise the label for the chosen size appears under the size buttons. */}
-          {stock.label && (!hasSizeQuantities || stock.soldOut) && (
+          {stock.label && (!tracksVariants || stock.soldOut) && (
             <p
               className={`mt-4 text-sm font-medium ${
                 stock.soldOut || stock.urgent || stock.low ? "text-blush-deep" : "text-sage-deep"
@@ -157,6 +218,7 @@ export default function ProductModal({
             </p>
           )}
 
+          {colorStock && colorBlock}
           {sizeOptions.length > 0 && (
             <div className="mt-5">
               <p className="text-sm text-ink-soft">Size</p>
@@ -174,7 +236,7 @@ export default function ProductModal({
                       className={`rounded-full border px-4 py-1.5 text-sm transition ${
                         soldOut
                           ? "cursor-not-allowed border-line text-ink-faint opacity-50"
-                          : o.size === size
+                          : o.size === activeSize
                             ? "border-ink bg-ink text-cream-raised"
                             : "border-line text-ink hover:border-sage"
                       }`}
@@ -185,39 +247,20 @@ export default function ProductModal({
                   );
                 })}
               </div>
-              {selectedSizeStock?.label && !selectedSizeStock.soldOut && (
-                <p
-                  className={`mt-2 text-xs font-medium ${
-                    selectedSizeStock.urgent || selectedSizeStock.low ? "text-blush-deep" : "text-sage-deep"
-                  }`}
-                >
-                  {selectedSizeStock.label}
-                </p>
-              )}
             </div>
           )}
 
-          {product.colors && product.colors.length > 0 && (
-            <div className="mt-5">
-              <p className="text-sm text-ink-soft">Color</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {product.colors.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c === color ? null : c)}
-                    className={`rounded-full border px-4 py-1.5 text-sm transition ${
-                      c === color
-                        ? "border-ink bg-ink text-cream-raised"
-                        : "border-line text-ink hover:border-sage"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {selection?.label && !selection.soldOut && (
+            <p
+              className={`mt-3 text-xs font-medium ${
+                selection.urgent || selection.low ? "text-blush-deep" : "text-sage-deep"
+              }`}
+            >
+              {selection.label}
+            </p>
           )}
+
+          {!colorStock && colorBlock}
 
           {!outOfStock ? (
             <a
